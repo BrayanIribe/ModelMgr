@@ -39,7 +39,7 @@ modelmgr
  --update Update model properties only, keep the original functions
  --keep-suffix=suf1,suf2,suf3 Keeps the suffix of the table of model.
  --db=dbname1,dbname2 Generate models from certain schemas.
- --namespace=App\\Models Namespace of the generated models. Default: App.
+ --namespace=App\Models Namespace of the generated models. Default: App.
  --help prints help screen.
 
 ```
@@ -87,7 +87,7 @@ modelmgr
  --update Actualiza las propiedades del modelo solamente, conserva las funciones originales.
  --keep-suffix=suf1,suf2,suf3 Mantiene el sufijo de las tablas.
  --db=dbname1,dbname2 Genera modelos a partir de determinados esquemas.
- --namespace=App\\Models Namespace de los modelos. Por defecto: App.
+ --namespace=App\Models Namespace de los modelos. Por defecto: App.
  --help Imprime pantalla de ayuda.
 
 ```
