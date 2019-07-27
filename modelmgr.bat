@@ -3,4 +3,3 @@
 @rmdir app\models /S /Q
 php -e modelmgr/build.php %*
 pause > nul
-@exit
