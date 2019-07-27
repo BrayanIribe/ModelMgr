@@ -1,5 +1,5 @@
 @echo off
 @title ModelMgr
 @rmdir ..\app\models /S /Q
-php -e build.php %*
+php -e modelmgr/build.php %*
 pause > nul
