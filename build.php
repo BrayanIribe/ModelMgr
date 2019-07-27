@@ -103,9 +103,13 @@ class Builder
             Utils::log("Has tables?", ($tables !== false));
             $models = [];
             $avoided_suffixes = [];
+            $is_app = false;
+            if (isset($config->database->app_dbname) && $config->database->app_dbname == $dbname){
+                $is_app = true;
+            }
             foreach ($tables as $table) {
                 $model_name = "";
-                $ok = Utils::create_model($table, $dbname, $namespace, $update, $avoided_suffixes, $model_name, $keep_suffix, ($dbname == $config->database->app_dbname));
+                $ok = Utils::create_model($table, $dbname, $namespace, $update, $avoided_suffixes, $model_name, $keep_suffix, $is_app);
                 Utils::log("Model {$table} -> {$model_name} created", $ok);
                 $models[] = $model_name;
             }
