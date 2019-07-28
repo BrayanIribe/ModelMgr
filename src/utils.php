@@ -2,6 +2,8 @@
 
 class Utils
 {
+    const PHALCON_PROJECT = 1;
+    const LARAVEL_PROJECT = 2;
     const COLORS = [
         'bold' => "\033[1m%s\033[0m",
         'dark' => "\033[2m%s\033[0m",
@@ -40,32 +42,49 @@ class Utils
         ob_end_clean();
         return $rtn;
     }
-    public static function log($str, $og_color = "white", $die_on_error = true, $show_clock = true)
+
+    public static function text_color($str, $color = "white")
+    {
+        $str = sprintf(self::COLORS[$color], $str);
+        return $str;
+    }
+    public static function log($str, $type = -1, $die_on_error = true)
     {
         $die = false;
-        if ($og_color === true) {
-            $og_color = "green";
-        } else if ($og_color === false) {
-            $og_color = "red";
-            $die = $die_on_error;
-        }
-
-        $color = self::COLORS[$og_color];
-        $time = "[" . date("H:i:s") . "]";
-        if ($show_clock) {
-            $str = $time . " " . $str;
-        }
-        if ($og_color == "red" || $og_color == "green") {
-            $status_str = ($og_color == "red" ? "ERROR" : "OK");
-            $str = str_pad($str, self::ROWS - strlen($status_str)) . $status_str;
+        $color = "white";
+        if ($type === true || $type === false) {
+            $str = ($type === true ? self::text_color("[  OK  ] ", "green") : self::text_color("[ FAIL ] ", "red")) . $str;
+            if ($type === false) {
+                $die = true;
+            }
+        } else if ($type !== "NO_BRACKET") {
+            if ($type == "WARN") {
+                $str = self::text_color("[ WARN ] ", "yellow") . $str;
+            } else if ($type != "NO_COLOR") {
+                if ($type === -1) {
+                    $type = "bold";
+                }
+                $str = self::text_color("[ INFO ] ", "bold") . self::text_color($str, $type);
+            }
         }
         $str .= "\n";
-        $final_str = sprintf($color, $str);
-        @printf($final_str, $str);
+
+        @printf($str);
 
         if ($die) {
             die();
         }
+    }
+
+    public static function find_project()
+    {
+        $root = getcwd();
+        //search for phalcon project
+        if (file_exists($root . "/.phalcon")) {
+            return self::PHALCON_PROJECT;
+        }
+
+        return false;
     }
 
     public static function open_conn($host, $user, $passwd, $db = null)
@@ -93,10 +112,9 @@ class Utils
         return (is_array($rtn) && count($rtn) ? $rtn : false);
     }
 
-    public static function strpos_line($filename, $str, $number = true)
+    public static function strpos_line($file, $str, $number = true)
     {
-        $lines = file($filename);
-        foreach ($lines as $lineNumber => $line) {
+        foreach ($file as $lineNumber => $line) {
             if (strpos($line, $str) !== false) {
                 return ($number ? $lineNumber + 1 : $line);
             }
@@ -153,10 +171,12 @@ class Utils
             }
         }
         $model_name = $table_name;
-        $model = __DIR__ . "/../app/models/" . $table_name . ".php";
+        $model = getcwd() . "/app/models/" . $table_name . ".php";
         $file = [];
+        $have_ns = false;
         if (file_exists($model)) {
             if ($update) {
+                $have_ns = strpos(file_get_contents($model), "namespace") !== false; //find the top of file
                 $file = file($model);
             }
             unlink($model);
@@ -175,7 +195,8 @@ class Utils
             $props = [];
             $keyword = "public $";
             $keyword_type = "@var ";
-            foreach ($file as $ln => $line) {
+            $new_file = file($model);
+            foreach ($new_file as $ln => $line) {
                 $pos = strpos($line, $keyword);
                 if ($pos === false) {
                     continue;
@@ -184,7 +205,7 @@ class Utils
                 $name = substr($name, 0, strpos($name, ";")); //remove the colon and new line bytes
 
                 //now get variable type
-                $line = $file[$ln - 2]; //set the line position to type @var like
+                $line = $new_file[$ln - 2]; //set the line position to type @var like
                 $pos = strpos($line, $keyword_type);
                 $type = substr($line, $pos + strlen($keyword_type)); //get only variable name
                 $type = substr($type, 0, strlen($type) - 1); //remove the new line byte
@@ -197,16 +218,17 @@ class Utils
             }
 
             //now, merge props!
-
-            $pos = self::strpos_line($model, "class"); //find the top of file
+            //KEEP THE ORIGINAL NAMESPACE AND COMMENTS OF TOP
+            $pos = self::strpos_line($file, "class"); //find the top of file
             $pos++; //add new line for key open
             $pos++; //add new line for key open
             $carries = $file[$pos];
             $carries = substr($carries, 0, strpos($carries, "/**"));
             $top = array_slice($file, 0, $pos);
-            $pos = self::strpos_line($model, "public function initialize()");
-            $pos -= 5; //go back for comment and new line
-            $bottom = array_slice($file, $pos);
+            //now find the initialization (end of props)
+            $pos = self::strpos_line($new_file, "public function initialize()");
+            $pos -= 4; //go back for comment and new line
+            $bottom = array_slice($new_file, $pos);
             //now set the props!
             $body = [];
             $ln = pack("H*", "0A");
@@ -250,19 +272,26 @@ class Utils
     {
 
         $limit = 70;
-        $title = "\x0D\x0A\x20\x20\x20\x5F\x5F\x5F\x5F\x5F\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x2E\x5F\x5F\x5F\x20\x20\x20\x20\x20\x20\x20\x2E\x5F\x5F\x20\x20\x20\x20\x20\x20\x5F\x5F\x5F\x5F\x5F\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x0D\x0A\x20\x20\x2F\x20\x20\x20\x20\x20\x5C\x20\x20\x20\x20\x5F\x5F\x5F\x5F\x20\x20\x20\x20\x5F\x5F\x7C\x20\x5F\x2F\x20\x5F\x5F\x5F\x5F\x20\x20\x7C\x20\x20\x7C\x20\x20\x20\x20\x2F\x20\x20\x20\x20\x20\x5C\x20\x20\x20\x20\x5F\x5F\x5F\x5F\x20\x5F\x5F\x5F\x5F\x5F\x5F\x5F\x20\x0D\x0A\x20\x2F\x20\x20\x5C\x20\x2F\x20\x20\x5C\x20\x20\x2F\x20\x20\x5F\x20\x5C\x20\x20\x2F\x20\x5F\x5F\x20\x7C\x5F\x2F\x20\x5F\x5F\x20\x5C\x20\x7C\x20\x20\x7C\x20\x20\x20\x2F\x20\x20\x5C\x20\x2F\x20\x20\x5C\x20\x20\x2F\x20\x5F\x5F\x5F\x5C\x5C\x5F\x20\x20\x5F\x5F\x20\x5C\x0D\x0A\x2F\x20\x20\x20\x20\x59\x20\x20\x20\x20\x5C\x28\x20\x20\x3C\x5F\x3E\x20\x29\x2F\x20\x2F\x5F\x2F\x20\x7C\x5C\x20\x20\x5F\x5F\x5F\x2F\x20\x7C\x20\x20\x7C\x5F\x5F\x2F\x20\x20\x20\x20\x59\x20\x20\x20\x20\x5C\x2F\x20\x2F\x5F\x2F\x20\x20\x3E\x7C\x20\x20\x7C\x20\x5C\x2F\x0D\x0A\x5C\x5F\x5F\x5F\x5F\x7C\x5F\x5F\x20\x20\x2F\x20\x5C\x5F\x5F\x5F\x5F\x2F\x20\x5C\x5F\x5F\x5F\x5F\x20\x7C\x20\x5C\x5F\x5F\x5F\x20\x20\x3E\x7C\x5F\x5F\x5F\x5F\x2F\x5C\x5F\x5F\x5F\x5F\x7C\x5F\x5F\x20\x20\x2F\x5C\x5F\x5F\x5F\x20\x20\x2F\x20\x7C\x5F\x5F\x7C\x20\x20\x20\x0D\x0A\x20\x20\x20\x20\x20\x20\x20\x20\x5C\x2F\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5C\x2F\x20\x20\x20\x20\x20\x5C\x2F\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5C\x2F\x2F\x5F\x5F\x5F\x5F\x5F\x2F\x20\x20\x20\x20\x20\x20\x20\x20\x20\x0D\x0A";
-        self::log(str_repeat("=", $limit), "bold", false, false);
-        self::log($title, "bold", false, false);
-        self::log(str_repeat("=", $limit) . "\n", "bold", false, false);
+        $title = "\x20\x5F\x5F\x5F\x5F\x5F\x20\x20\x20\x20\x20\x20\x20\x5F\x20\x20\x20\x20\x20\x5F\x20\x5F\x5F\x5F\x5F\x5F\x20\x20\x20\x20\x20\x20\x20\x20\x20\x0D\x0A\x7C\x20\x20\x20\x20\x20\x7C\x5F\x5F\x5F\x20\x5F\x7C\x20\x7C\x5F\x5F\x5F\x7C\x20\x7C\x20\x20\x20\x20\x20\x7C\x5F\x5F\x5F\x20\x5F\x5F\x5F\x20\x0D\x0A\x7C\x20\x7C\x20\x7C\x20\x7C\x20\x2E\x20\x7C\x20\x2E\x20\x7C\x20\x2D\x5F\x7C\x20\x7C\x20\x7C\x20\x7C\x20\x7C\x20\x2E\x20\x7C\x20\x20\x5F\x7C\x0D\x0A\x7C\x5F\x7C\x5F\x7C\x5F\x7C\x5F\x5F\x5F\x7C\x5F\x5F\x5F\x7C\x5F\x5F\x5F\x7C\x5F\x7C\x5F\x7C\x5F\x7C\x5F\x7C\x5F\x20\x20\x7C\x5F\x7C\x20\x20\x0D\x0A\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x7C\x5F\x5F\x5F\x7C\x20\x20\x20\x20";
+        self::log($title, "NO_BRACKET");
+        self::log(self::text_color("version ", "green") . self::text_color(version, "yellow") . "\n", "NO_BRACKET");
+    }
+
+    public static function command($str)
+    {
+        $padding = 25;
+        $str = str_pad($str, $padding);
+        $str = self::text_color($str, "green");
+        return " " . $str;
     }
 
     public static function help()
     {
-        self::log(" Available commands:\n", "bold", false, false);
-        self::log(" --update Update model properties only, keep the original functions", "bold", false, false);
-        self::log(" --keep-suffix=suf1,suf2,suf3 Keeps the suffix of the table of model.", "bold", false, false);
-        self::log(" --db=dbname1,dbname2 Generate models from certain schemas.", "bold", false, false);
-        self::log(" --namespace=App\\Models Namespace of the generated models. Default: App.", "bold", false, false);
-        self::log(" --help prints this screen.", "bold", false, false);
+        self::log(self::text_color(" Available commands:\n", "yellow"), "NO_BRACKET");
+        self::log(self::command("--update") . "Update model properties only, keep the original functions.", "NO_BRACKET");
+        self::log(self::command("--keep-suffix") . "Keeps the suffix of the table of model.", "NO_BRACKET");
+        self::log(self::command("--db") . "Generate models from certain schemas.", "NO_BRACKET");
+        self::log(self::command("--namespace") . "Namespace of the generated models.", "NO_BRACKET");
+        self::log(self::command("--help") . "prints this screen.", "NO_BRACKET");
     }
 }

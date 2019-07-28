@@ -1,11 +1,12 @@
 #!/usr/bin/env php
-
 <?php
 
 /*
 Brayan Iribe (IvySoftware). Copyright 2019.
 First revision: 26-07-2019.
  */
+
+define("version", "1.0.2");
 
 require_once __DIR__ . "/src/utils.php";
 
@@ -29,7 +30,7 @@ class Builder
         $db_params = Utils::parse_argv("--db", $argv);
         $namespace = Utils::parse_argv("--namespace", $argv);
         if (!count($namespace)) {
-            $namespace = "App";
+            $namespace = "";
         } else {
             $namespace = $namespace[0];
         }
@@ -42,16 +43,27 @@ class Builder
             Utils::help();
             return;
         }
+
+        $project_type = Utils::find_project();
+        $project_str = "???";
+
+        if ($project_type === false) {
+            Utils::log("No compatible project found!", false);
+        } else if ($project_type == Utils::PHALCON_PROJECT) {
+            $project_str = "Phalcon";
+        }
+
+        Utils::log("{$project_str} project found.", "WARN");
         if (!extension_loaded("phalcon")) {
-            Utils::log("Phalcon module is not installed/enabled in the current php instance.", "red");
+            Utils::log("Phalcon module is not installed/enabled in the current php instance.", false);
         }
 
         //get phalcon config
 
-        $config_dir = __DIR__ . "/../app/config/config.php";
+        $config_dir = getcwd() . "/app/config/config.php";
 
         if (!file_exists($config_dir)) {
-            Utils::log("app/config/config.php not found in project! ", "red");
+            Utils::log("config.php not found in project!", false);
             return;
         }
 
@@ -72,7 +84,7 @@ class Builder
         //check if phalcon devtools is available
         $cmd = Utils::shell("phalcon --version");
         $error = $cmd === null || !strlen($cmd) || strpos($cmd, "Phalcon DevTools") === false;
-        Utils::log("Phalcon devtools installed? ", !$error);
+        Utils::log("Phalcon devtools " . ($error ? "not " : "") . "found.", !$error);
 
         //check schemas
 
@@ -84,23 +96,23 @@ class Builder
         //now retrieve the tables of main db
 
         if (!$update) {
-            Utils::log("Update argument not set. I'll force the creation of the model...", "yellow");
+            Utils::log("Update argument not set. I'll force the creation of the model...", "WARN");
         }
 
         if (count($db_params)) {
-            Utils::log("(!) Overriding databases in config.php! --db argument present!", "yellow");
+            Utils::log("Overriding databases in config.php! --db argument present!", "WARN");
         }
 
-        if (!file_exists(__DIR__ . "/../app/models")) {
-            Utils::log("Models folder doesnt exists, I'll create one...", "yellow");
-            mkdir(__DIR__ . "/../app/models");
+        if (!file_exists(getcwd() . "/app/models")) {
+            Utils::log("Models folder doesnt exists, I'll create one...", "WARN");
+            @mkdir(getcwd() . "/app/models");
         }
 
         //so start with phalcon models
 
         foreach ($db as $dbname) {
             $tables = Utils::query($this->conn, "SHOW TABLES IN " . $dbname);
-            Utils::log("#######################################################", "bold");
+            Utils::log("#######################################################", "NO_BRACKET");
             Utils::log("Switching to database " . $dbname, "bold");
             Utils::log("Has tables?", ($tables !== false));
             $models = [];

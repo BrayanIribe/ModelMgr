@@ -20,7 +20,8 @@
     },
     "require": {
         "php": ">=5.5 < 7.3.2 || >7.3.3",
-        "ext-phalcon": "~3.3"
+        "ext-phalcon": "~3.3",
+        "phalcon/devtools": ">=3.4"
     },
     "bin": [
         "modelmgr"
