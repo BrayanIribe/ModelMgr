@@ -29,6 +29,7 @@ class Builder
         $keep_suffix = Utils::parse_argv("--keep-suffix", $argv);
         $db_params = Utils::parse_argv("--db", $argv);
         $namespace = Utils::parse_argv("--namespace", $argv);
+        $inject = Utils::parse_argv("--inject", $argv);
         if (!count($namespace)) {
             $namespace = "";
         } else {
@@ -42,6 +43,20 @@ class Builder
         if (in_array("--help", $argv)) {
             Utils::help();
             return;
+        }
+
+        if (!count($inject)) {
+            $inject = false;
+        } else {
+            $inject = $inject[0];
+            if (!file_exists(getcwd() . "/" . $inject)) {
+                Utils::log("The provided inject file doesn't exists.", false);
+            }
+            $inject = json_decode(file_get_contents(getcwd() . "/" . $inject));
+            if ($inject === false || $inject === null) {
+                Utils::log("Invalid inject file.", false);
+            }
+            Utils::log("Inject file provided. Code injection will be present.", "WARN");
         }
 
         $project_type = Utils::find_project();
@@ -114,7 +129,7 @@ class Builder
             $tables = Utils::query($this->conn, "SHOW TABLES IN " . $dbname);
             Utils::log("#######################################################", "NO_BRACKET");
             Utils::log("Switching to database " . $dbname, "bold");
-            Utils::log("Has tables?", ($tables !== false));
+            Utils::log("Database have" . ($tables == false ? "'nt" : "") . " tables.", ($tables !== false));
             $models = [];
             $avoided_suffixes = [];
             $is_app = false;
@@ -123,7 +138,7 @@ class Builder
             }
             foreach ($tables as $table) {
                 $model_name = "";
-                $ok = Utils::create_model($table, $dbname, $namespace, $update, $avoided_suffixes, $model_name, $keep_suffix, $is_app);
+                $ok = Utils::create_model($table, $dbname, $namespace, $update, $inject, $avoided_suffixes, $model_name, $keep_suffix);
                 Utils::log("Model {$table} -> {$model_name} created", $ok);
                 $models[] = $model_name;
             }

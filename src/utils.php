@@ -151,7 +151,7 @@ class Utils
         return [];
     }
 
-    public static function create_model($table, $dbname, $namespace, $update, &$avoided_suffixes, &$model_name, $keep_suffix = [], $is_app = false)
+    public static function create_model($table, $dbname, $namespace, $update, $inject, &$avoided_suffixes, &$model_name, $keep_suffix = [])
     {
         $table_name = $table;
         $suffix = "";
@@ -226,9 +226,22 @@ class Utils
             $carries = substr($carries, 0, strpos($carries, "/**"));
             $top = array_slice($file, 0, $pos);
             //now find the initialization (end of props)
-            $pos = self::strpos_line($new_file, "public function initialize()");
-            $pos -= 4; //go back for comment and new line
-            $bottom = array_slice($new_file, $pos);
+            $pos = self::strpos_line($file, "public function initialize()");
+            //code injection
+            $relative_schema_pos = self::strpos_line(array_slice($file, $pos - 4), "\$this->setSchema") - 1;
+            //inject the code of the previous model initialize()!
+            $bottom = array_slice($file, $pos - 4, $relative_schema_pos);
+            //Find the source in the NEW FILE
+            $set_source_ln = self::strpos_line($new_file, "\$this->setSource");
+            //find bracket
+            $relative_close_bracket = self::strpos_line(array_slice($new_file, $set_source_ln), $carries . "}") - 1;
+            //inject the db params
+            $bottom = array_merge($bottom, array_slice($new_file, $set_source_ln - 2, 2));
+            //inject FK keys
+            $bottom = array_merge($bottom, array_slice($new_file, $set_source_ln, $relative_close_bracket));
+            //now inject the rest of code
+            $end_bracket_pos = self::strpos_line($file, $carries . "}") - 1;
+            $bottom = array_merge($bottom, array_slice($file, $end_bracket_pos));
             //now set the props!
             $body = [];
             $ln = pack("H*", "0A");
@@ -245,7 +258,7 @@ class Utils
 
         }
 
-        if ($success && $is_app && !$update) {
+        if ($success && $inject && !$update) {
             //manipulate the file!
             //search for initialize function
             $file = file($model);
