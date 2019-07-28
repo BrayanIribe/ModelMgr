@@ -1,7 +1,7 @@
 # ModelMgr
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/520683/61989813-909d9d00-afe9-11e9-9267-99841a8e5de1.png" alt="ModelMgr"/>
+  <img src="https://user-images.githubusercontent.com/520683/62002257-10dd0480-b0b5-11e9-8e17-cd22fcc6ac57.png" alt="ModelMgr"/>
 </p>
 
 Model manager (ModelMgr) is a tool for Phalcon (at this moment). It generates models from a certain schemas. It can update their properties only, keep the suffixes of tables, etc.
@@ -99,6 +99,8 @@ Si no se utiliza el comando **--keep-sufix=sat**, el sufijo se eliminará y el m
 **ROJO:** **NO PUEDES** poner comentarios, funciones o nuevas líneas en ese bloque. **ModelMgr no podrá controlarlo y devolverá un modelo probablemente roto**.
 
 **AMARILLO:** Puedes poner lo que quieras, **siempre y cuando no utilices la inyección de código de ModelMgr. Si lo haces, el modelo puede resultar roto o con código duplicado**.
+
+**ModelMgr no puede detectar que agregaste un comentario, funciones o nuevas líneas en las propiedades del modelo. Mantén el modelo como Phalcon lo genera originalmente. Si haces esto, el modelo puede terminar probablemente roto**.
 
 En este momento, ModelMgr solo funciona para proyectos Phalcon. Sin embargo, estoy interesado en poder portar esta herramienta a otros frameworks, como Laravel.
 
