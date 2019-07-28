@@ -7,7 +7,7 @@ Brayan Iribe (IvySoftware). Copyright 2019.
 First revision: 26-07-2019.
  */
 
-require_once __DIR__ . "/utils.php";
+require_once __DIR__ . "/src/utils.php";
 
 $builder = new Builder();
 
