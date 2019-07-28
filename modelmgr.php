@@ -1,7 +1,7 @@
 <?php
 
 /*
-IvySoftware. Copyright 2019.
+Brayan Iribe (IvySoftware). Copyright 2019.
 First revision: 26-07-2019.
  */
 
@@ -104,7 +104,7 @@ class Builder
             $models = [];
             $avoided_suffixes = [];
             $is_app = false;
-            if (isset($config->database->app_dbname) && $config->database->app_dbname == $dbname){
+            if (isset($config->database->app_dbname) && $config->database->app_dbname == $dbname) {
                 $is_app = true;
             }
             foreach ($tables as $table) {

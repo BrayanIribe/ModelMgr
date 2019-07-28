@@ -1,0 +1,28 @@
+{
+    "name": "ivybridge/model-mgr",
+    "description": "Simple command-line model manager for Phalcon. It generates models from certain schemas. It can update their properties only, keep the suffixes of tables, etc.",
+    "type": "library",
+    "keywords": [
+        "model",
+        "manager",
+        "phalcon"
+    ],
+    "authors": [
+        {
+            "name": "Brayan Iribe",
+            "email": "brayaniribe2014@gmail.com",
+            "homepage": "http://github.com/BrayanIribe"
+        }
+    ],
+    "support": {
+        "issues": "http://github.com/BrayanIribe/ModelMgr/issues",
+        "source": "http://github.com/BrayanIribe/ModelMgr"
+    },
+    "require": {
+        "php": ">=5.5 < 7.3.2 || >7.3.3",
+        "ext-phalcon": "~3.3"
+    },
+    "bin": [
+        "modelmgr"
+    ]
+}
