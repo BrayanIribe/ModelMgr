@@ -125,3 +125,5 @@ Si no se proporciona un modelo a actualizar, entonces **se crearán aquellos mod
 **ModelMgr no puede detectar que agregaste un comentario, funciones o nuevas líneas en las propiedades del modelo. Mantén el modelo como Phalcon lo genera originalmente. Si haces esto, el modelo puede terminar probablemente roto**.
 
 En este momento, ModelMgr solo funciona para proyectos Phalcon. Sin embargo, estoy interesado en poder portar esta herramienta a otros frameworks, como Laravel.
+
+<span></span>
