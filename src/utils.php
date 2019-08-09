@@ -151,10 +151,8 @@ class Utils
         return [];
     }
 
-    public static function create_model($table, $dbname, $namespace, $update, $inject, &$avoided_suffixes, &$model_name, $keep_suffix = [])
+    public static function get_tablename($table, $keep_suffix, &$avoided_suffixes, &$suffix = null)
     {
-        $table_name = $table;
-        $suffix = "";
         if (strpos($table, "_")) {
             $table_name = ""; //reset table name
             $words = explode("_", $table);
@@ -162,32 +160,55 @@ class Utils
             for ($i = 0; $i < count($words); $i++) {
                 $word = ucfirst($words[$i]);
                 if ($i == 0 && !in_array($word, $keep_suffix)) {
-                    if (!in_array($word, $avoided_suffixes)) {
+                    if (!in_array($word, $avoided_suffixes) || $suffix !== null) {
                         $avoided_suffixes[] = $word;
+                        $suffix = $word;
                     }
                     continue;
                 }
                 $table_name .= $word;
             }
+            return $table_name;
+        } else {
+            return $table;
         }
+    }
+
+    public static function create_model($table, $dbname, $namespace, &$avoided_suffixes, &$model_name, $fixer, $keep_suffix = [])
+    {
+        $table_name = self::get_tablename($table, $keep_suffix, $avoided_suffixes);
         $model_name = $table_name;
         $model = getcwd() . "/app/models/" . $table_name . ".php";
         $file = [];
         $have_ns = false;
+        $update = false;
         if (file_exists($model)) {
-            if ($update) {
-                $have_ns = strpos(file_get_contents($model), "namespace") !== false; //find the top of file
-                $file = file($model);
-            }
+            //force model update
+            $update = true;
+            $have_ns = strpos(file_get_contents($model), "namespace") !== false; //find the top of file
+            $file = file($model);
+            copy($model, $model . '.bak'); //generate backup
             unlink($model);
         }
 
         $cmd = "phalcon model {$table_name} --schema={$dbname} --name={$table}";
+
         if (strlen($namespace)) {
             $cmd .= " --namespace={$namespace}";
         }
         $output = self::shell($cmd);
         $success = strpos($output, "successfully created.") !== false && file_exists($model);
+
+        if (!$success) {
+            $output_ln = explode("\r\n", $output);
+            $error = self::strpos_line($output_ln, "ERROR: ") - 1;
+            $error = str_replace(["\r", "\n"], '', $output_ln[$error]);
+            if ($update && count($file)) {
+                file_put_contents($model, $file);
+                file_put_contents($model . '.bak', $file);
+            }
+            self::log($error, false);
+        }
 
         if ($success && $update && count($file)) {
             //just update props, keep the functions
@@ -239,9 +260,14 @@ class Utils
             $bottom = array_merge($bottom, array_slice($new_file, $set_source_ln - 2, 2));
             //inject FK keys
             $bottom = array_merge($bottom, array_slice($new_file, $set_source_ln, $relative_close_bracket));
+            //pass the fixer in FK keys
+            foreach ($fixer as $find => $replace) {
+                $bottom = str_replace($find, $replace, $bottom);
+            }
             //now inject the rest of code
             $end_bracket_pos = self::strpos_line($file, $carries . "}") - 1;
             $bottom = array_merge($bottom, array_slice($file, $end_bracket_pos));
+
             //now set the props!
             $body = [];
             $ln = pack("H*", "0A");
@@ -255,25 +281,12 @@ class Utils
 
             @unlink($model);
             file_put_contents($model, array_merge($top, $body, $bottom));
-
-        }
-
-        if ($success && $inject && !$update) {
-            //manipulate the file!
-            //search for initialize function
-            $file = file($model);
-            $pos = self::strpos_line($model, "public function initialize()");
-            if ($pos == -1) {
-                return $success;
+        } else if ($success && !$update) {
+            //pass the fixer anyways
+            $file = file_get_contents($model);
+            foreach ($fixer as $find => $replace) {
+                $file = str_replace($find, $replace, $file);
             }
-
-            //advance one line because the key
-            $pos++;
-            $line = $file[$pos]; //should return $this->setSchema
-            $ln = pack("H*", "0A");
-            $tabs = substr($line, 0, strpos($line, '$this'));
-            $new_line = $tabs . '$schema = $this->getDI()->get("schema");' . $ln . $tabs . '$this->setSchema($schema);' . $ln;
-            self::merge_line($file, $pos, $new_line);
             @unlink($model);
             file_put_contents($model, $file);
         }

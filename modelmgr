@@ -25,11 +25,15 @@ class Builder
         //check if phalcon module is available
 
         $benchmark_start = microtime(true);
-        $update = in_array("--update", $argv);
+        $u_table = "";
         $keep_suffix = Utils::parse_argv("--keep-suffix", $argv);
         $db_params = Utils::parse_argv("--db", $argv);
         $namespace = Utils::parse_argv("--namespace", $argv);
-        $inject = Utils::parse_argv("--inject", $argv);
+
+        if ($argv[1] && strpos($argv[1], '-') === false && strpos($argv[1], '=') === false) {
+            $u_table = $argv[1];
+        }
+
         if (!count($namespace)) {
             $namespace = "";
         } else {
@@ -43,20 +47,6 @@ class Builder
         if (in_array("--help", $argv)) {
             Utils::help();
             return;
-        }
-
-        if (!count($inject)) {
-            $inject = false;
-        } else {
-            $inject = $inject[0];
-            if (!file_exists(getcwd() . "/" . $inject)) {
-                Utils::log("The provided inject file doesn't exists.", false);
-            }
-            $inject = json_decode(file_get_contents(getcwd() . "/" . $inject));
-            if ($inject === false || $inject === null) {
-                Utils::log("Invalid inject file.", false);
-            }
-            Utils::log("Inject file provided. Code injection will be present.", "WARN");
         }
 
         $project_type = Utils::find_project();
@@ -110,10 +100,6 @@ class Builder
 
         //now retrieve the tables of main db
 
-        if (!$update) {
-            Utils::log("Update argument not set. I'll force the creation of the model...", "WARN");
-        }
-
         if (count($db_params)) {
             Utils::log("Overriding databases in config.php! --db argument present!", "WARN");
         }
@@ -136,9 +122,44 @@ class Builder
             if (isset($config->database->app_dbname) && $config->database->app_dbname == $dbname) {
                 $is_app = true;
             }
+            $fixer = [];
+            foreach ($tables as $table) {
+                $suf = "";
+                $name = Utils::get_tablename($table, $keep_suffix, $avoided_suffixes, $suf);
+                if (strlen($suf)) {
+                    $fixer[$suf . $name] = $name;
+                }
+            }
+            //check if the table provided is in dbms
+            $avoided_suffixes_n = [];
+            if ($u_table && strlen($u_table)) {
+                if (in_array($u_table, $tables)) {
+                    $tables = [$u_table];
+                    $name = Utils::get_tablename($u_table, $keep_suffix, $avoided_suffixes_n);
+                    $model = getcwd() . "/app/models/" . $name . ".php";
+                    if (!file_exists($model)) {
+                        Utils::log("The model " . $name . ".php doesn't exists.", false);
+                    }
+                    //get the namespace of model
+                    $file = file($model);
+                    $ns_ln = Utils::strpos_line($file, "namespace") - 1;
+                    $ns_ln = $file[$ns_ln];
+                    $ns_pos = strpos($ns_ln, "namespace");
+                    if ($ns_pos !== false) {
+                        $ns_ln = substr($ns_ln, $ns_pos + strlen("namespace") + 1); //get just namespace
+                        $ns_ln = substr($ns_ln, 0, strpos($ns_ln, ";"));
+                        if ($ns_ln && strlen($ns_ln)) {
+                            $namespace = $ns_ln;
+                        }
+                    }
+                    Utils::log("Updating only the table " . $u_table, "WARN");
+                } else {
+                    Utils::log("Table " . $u_table . " not found.", false);
+                }
+            }
             foreach ($tables as $table) {
                 $model_name = "";
-                $ok = Utils::create_model($table, $dbname, $namespace, $update, $inject, $avoided_suffixes, $model_name, $keep_suffix);
+                $ok = Utils::create_model($table, $dbname, $namespace, $avoided_suffixes, $model_name, $fixer, $keep_suffix);
                 Utils::log("Model {$table} -> {$model_name} created", $ok);
                 $models[] = $model_name;
             }
