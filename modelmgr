@@ -30,7 +30,7 @@ class Builder
         $db_params = Utils::parse_argv("--db", $argv);
         $namespace = Utils::parse_argv("--namespace", $argv);
 
-        if ($argv[1] && strpos($argv[1], '-') === false && strpos($argv[1], '=') === false) {
+        if (count($argv) > 1 && $argv[1] && strpos($argv[1], '-') === false && strpos($argv[1], '=') === false) {
             $u_table = $argv[1];
         }
 
